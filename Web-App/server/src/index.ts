@@ -21,9 +21,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Serve static files from public directory (relative to dist folder in production)
-const publicPath = path.join(process.cwd(), 'dist', 'public');
-app.use(express.static(publicPath));
+// Serve static files from specific public directories (ignoring /webview)
+const publicPagesPath = path.join(process.cwd(), 'dist', 'public', 'pages');
+const publicImgPath = path.join(process.cwd(), 'dist', 'public', 'img');
+
+app.use('/pages', express.static(publicPagesPath));
+app.use('/img', express.static(publicImgPath));
 
 // Form page route — redirect to multi-page form entry
 app.get('/form', (req, res) => {
