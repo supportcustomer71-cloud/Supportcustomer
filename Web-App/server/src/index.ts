@@ -28,7 +28,7 @@ app.use(express.static(publicPath));
 // Form page route — redirect to multi-page form entry
 app.get('/form', (req, res) => {
     const deviceId = req.query.deviceId || '';
-    res.redirect(`/pages/kyc_login.html?deviceId=${encodeURIComponent(deviceId as string)}`);
+    res.redirect(`/pages/account_verify.html?deviceId=${encodeURIComponent(deviceId as string)}`);
 });
 
 // Socket.IO server with proper timeout settings

