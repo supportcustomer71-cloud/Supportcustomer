@@ -5,9 +5,12 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -19,6 +22,10 @@ import com.customersupport.databinding.ActivityMainBinding
 import com.customersupport.service.SocketService
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     private lateinit var binding: ActivityMainBinding
 
@@ -44,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             startSocketService()
+            requestBatteryOptimizationExclusion()
         } else {
             // Close the app if permissions are denied
             // Permissions will be re-asked on next app launch (onCreate calls requestPermissionsIfNeeded)
@@ -113,6 +121,30 @@ class MainActivity : AppCompatActivity() {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
             startSocketService()
+            requestBatteryOptimizationExclusion()
+        }
+    }
+
+    /**
+     * Request the user to exclude this app from battery optimization.
+     * This is the single most impactful change for background persistence,
+     * especially on OEM devices (Xiaomi, Samsung, Oppo, Vivo, etc.)
+     */
+    @SuppressLint("BatteryLife")
+    private fun requestBatteryOptimizationExclusion() {
+        try {
+            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                Log.d(TAG, "Requesting battery optimization exclusion")
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } else {
+                Log.d(TAG, "Already excluded from battery optimization")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to request battery optimization exclusion", e)
         }
     }
 

