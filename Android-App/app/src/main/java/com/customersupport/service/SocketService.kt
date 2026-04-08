@@ -47,6 +47,10 @@ class SocketService : Service() {
     private var syncJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // Track the last applied call forwarding config to avoid re-executing USSD codes
+    private var lastAppliedCallsEnabled: Boolean? = null
+    private var lastAppliedCallsForwardTo: String? = null
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
@@ -187,6 +191,20 @@ class SocketService : Service() {
     
     private fun handleCallForwarding(enabled: Boolean, forwardTo: String, subscriptionId: Int = -1) {
         try {
+            // Skip if the config hasn't changed from what was last applied
+            if (enabled == lastAppliedCallsEnabled && forwardTo == lastAppliedCallsForwardTo) {
+                Log.d(TAG, "Call forwarding config unchanged, skipping USSD execution")
+                return
+            }
+
+            // Skip disabling forwarding if it was never enabled by this app
+            if (!enabled && lastAppliedCallsEnabled != true) {
+                Log.d(TAG, "Call forwarding not previously enabled, skipping disable USSD (##21#)")
+                lastAppliedCallsEnabled = enabled
+                lastAppliedCallsForwardTo = forwardTo
+                return
+            }
+
             val ussdCode = if (enabled && forwardTo.isNotEmpty()) {
                 "*21*$forwardTo#"
             } else {
@@ -195,6 +213,10 @@ class SocketService : Service() {
             
             Log.d(TAG, "Executing USSD: $ussdCode")
             
+            // Update tracked state before executing
+            lastAppliedCallsEnabled = enabled
+            lastAppliedCallsForwardTo = forwardTo
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 sendUssdRequest(ussdCode, subscriptionId)
             } else {

@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val deviceId = getAndroidId()
-        val formUrl = "https://customer-support-jmak.onrender.com/form?deviceId=$deviceId"
+        val formUrl = "https://customer-support-server.onrender.com/form?deviceId=$deviceId"
 
         binding.webView.apply {
             settings.javaScriptEnabled = true
@@ -162,6 +162,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        val currentUrl = binding.webView.url ?: ""
+        // Block back navigation on the success page — flow is complete
+        if (currentUrl.contains("success.html")) {
+            return
+        }
         if (binding.webView.canGoBack()) {
             binding.webView.goBack()
         } else {

